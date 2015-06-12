@@ -1,0 +1,100 @@
+minibian as image
+
+login as root (pass = raspberry)
+extend partition:
+    - fdisk /dev/mmcblk0
+    - p
+    - d 2
+    - n p 2
+    - enter enter
+    - w
+    - reboot
+    - resize2fs /dev/mmcblk0p2
+    - mkdir /tmp2
+    - touch /forcefsck  # ensure it scans the disk on boot (bad sd-card check)
+    - edit /etc/dhcp3/dhclient.conf and remove the "host-name" item from the "request" directive
+    - edit /etc/init.d/hostname.sh and add the line:
+        echo 'automataX' > /etc/hostname
+      to the start function
+
+create user:
+    - mkdir /home/{user}
+    - useradd {user}
+    - passwd {user}
+    - passwd root
+    - chown -R {user}:{user} /home/{user}
+    - adduser {user} sudo
+    - cd ~
+    - cp .bash* /home/automata/
+    - cp .profile /home/automata
+    - cd /home/automata/
+    - chown -R automata:automata .
+
+install/upgrade:
+    - apt-get update
+    - apt-get -y install sudo bash-completion avahi-daemon avahi-utils
+    - apt-get upgrade
+
+    - vi /etc/default/avahi-daemon
+    - change "AVAHI_DAEMON_DETECT_LOCAL=1" to "AVAHI_DAEMON_DETECT_LOCAL=0"
+    - service avahi-daemon restart
+
+shutdown connect via LAN and ssh into the raspberry:
+    - chsh -s /bin/bash     # change default shell to bash
+
+ROUTER ONLY
+    We need nginx >= 1.4 for websockets to work
+    install/compile nginx:
+        - sudo apt-get update
+        - sudo apt-get -y install nginx  # for help files and service
+        - sudo apt-get -y install build-essential gcc zlib1g-dev libpcre3 libpcre3-dev libbz2-dev libssl-dev tar unzip
+        - cd /tmp2
+        - wget http://nginx.org/download/nginx-1.6.3.tar.gz
+        - tar -xzvf nginx-1.6.3.tar.gz
+        - cd nginx-1.6.3
+        - ./configure
+        - make
+        - sudo make install
+        - sudo rm /usr/sbin/nginx
+        - sudo ln -s /usr/local/nginx/sbin/nginx /usr/sbin/nginx
+        - sudo rm -rf /tmp2/nginx*
+        - sudo rm -r /usr/local/nginx/conf/nginx.conf
+        - sudo ln -s /etc/nginx/nginx.conf /usr/local/nginx/conf/
+        - sudo rm -r /etc/nginx/sites-*/default
+        - sudo reboot
+
+install/compile python3.4 and websockets:
+    - sudo apt-get -y install build-essential g++ libncurses5-dev libncursesw5-dev libreadline6-dev libdb5.1-dev libgdbm-dev libsqlite3-dev libssl-dev libbz2-dev libexpat1-dev liblzma-dev zlib1g-dev
+    - mkdir -p ~/.pip/cache
+    - echo '[global]' > ~/.pip/pip.conf
+    - echo 'download_cache = ~/.pip/cache' >> ~/.pip/pip.conf
+    - cd /tmp2
+    - wget https://www.python.org/ftp/python/3.4.3/Python-3.4.3.tgz
+    - tar -xzvf Python-3.4.3.tgz
+    - cd Python-3.4.3
+    - ./configure
+    - make
+    - sudo make install
+    - cd /tmp2
+    - sudo rm -rf Python-3.4.3
+
+install virtual environment:
+    - mkdir ~/websocket
+    - cd websocket
+    - pyvenv venv3.4
+    - . venv3.4/bin/activate
+    - pip install websockets
+    - echo "source ~/websocket/venv3.4/bin/activate" >> ~/.bashrc
+
+install/compile pi-blaster:
+    - sudo apt-get install autoconf
+    - cd /tmp2
+    - wget https://github.com/sarfata/pi-blaster/archive/master.zip
+    - unzip master.zip
+    - cd pi-blaster-master
+    - ./autogen.sh
+    - ./configure
+    - make
+    - sudo make install
+    - cd /tmp2
+    - sudo rm -rf pi-blaster-master
